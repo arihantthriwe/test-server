@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -9,6 +10,10 @@ import (
 func defaultHandler(w http.ResponseWriter, r *http.Request) {
 	dump, err := httputil.DumpRequest(r, true)
 	log.Println("HTTP request", r, string(dump), err)
+	if r.TLS == nil{
+		w.Write([]byte("nil TLS"))
+		return
+	}
 	log.Println("HTTP TLS", r.TLS, string(r.TLS.TLSUnique))
 	certs := r.TLS.PeerCertificates
 	log.Println("HTTP CERTS", certs)
@@ -18,5 +23,14 @@ func defaultHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", defaultHandler)
-	http.ListenAndServeTLS(":8080", "server.crt", "server.key", nil)
+	server := &http.Server{
+		Addr: ":8080",
+		TLSConfig: &tls.Config{
+			ClientAuth: tls.RequestClientCert,
+		},
+		Handler: http.HandlerFunc(defaultHandler),
+	}
+
+	server.ListenAndServeTLS("server.crt", "server.key")
+	// http.ListenAndServeTLS(":8080", "server.crt", "server.key", nil)
 }
